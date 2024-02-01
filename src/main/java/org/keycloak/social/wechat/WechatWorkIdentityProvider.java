@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.*;
@@ -160,7 +161,7 @@ public class WechatWorkIdentityProvider
 
     @Override
     public Object callback(RealmModel realm, AuthenticationCallback callback, EventBuilder event) {
-        return new Endpoint(callback, realm, event);
+        return new Endpoint(callback, realm, event, this);
     }
 
     @Override
@@ -299,10 +300,11 @@ public class WechatWorkIdentityProvider
         return uriBuilder;
     }
 
-    protected class Endpoint {
+    protected static class Endpoint {
         protected AuthenticationCallback callback;
         protected RealmModel realm;
         protected EventBuilder event;
+        private final WechatWorkIdentityProvider provider;
 
         @Context
         protected KeycloakSession session;
@@ -316,18 +318,22 @@ public class WechatWorkIdentityProvider
         @Context
         protected UriInfo uriInfo;
 
-        public Endpoint(AuthenticationCallback callback, RealmModel realm, EventBuilder event) {
+        public Endpoint(AuthenticationCallback callback, RealmModel realm, EventBuilder event, WechatWorkIdentityProvider provider) {
             this.callback = callback;
             this.realm = realm;
             this.event = event;
+            this.provider = provider;
         }
 
-        @GET
+        @GET @Path("")
         public Response authResponse(
                 @QueryParam(AbstractOAuth2IdentityProvider.OAUTH2_PARAMETER_STATE) String state,
                 @QueryParam(AbstractOAuth2IdentityProvider.OAUTH2_PARAMETER_CODE) String authorizationCode,
                 @QueryParam(OAuth2Constants.ERROR) String error,
-                @QueryParam("appid") String client_id) {
+                @QueryParam("appid") String client_id
+            ) {
+            WechatWorkProviderConfig providerConfig = provider.getConfig();
+
             logger.info("OAUTH2_PARAMETER_CODE=" + authorizationCode);
 
             // 以下样版代码从 AbstractOAuth2IdentityProvider 里获取的。
@@ -343,9 +349,9 @@ public class WechatWorkIdentityProvider
                 }
 
                 if (error != null) {
-                    logger.error(error + " for broker login " + getConfig().getProviderId());
+                    logger.error(error + " for broker login " + providerConfig.getProviderId());
                     if (error.equals(ACCESS_DENIED)) {
-                        return callback.cancelled(getConfig());
+                        return callback.cancelled(providerConfig);
                     } else if (error.equals(OAuthErrorException.LOGIN_REQUIRED)
                             || error.equals(OAuthErrorException.INTERACTION_REQUIRED)) {
                         return callback.error(error);
@@ -355,10 +361,10 @@ public class WechatWorkIdentityProvider
                 }
 
                 if (authorizationCode != null) {
-                    BrokeredIdentityContext federatedIdentity = getFederatedIdentity(authorizationCode);
+                    BrokeredIdentityContext federatedIdentity = provider.getFederatedIdentity(authorizationCode);
 
-                    federatedIdentity.setIdpConfig(getConfig());
-                    federatedIdentity.setIdp(WechatWorkIdentityProvider.this);
+                    federatedIdentity.setIdpConfig(providerConfig);
+                    federatedIdentity.setIdp(provider);
                     federatedIdentity.setAuthenticationSession(authSession);
 
                     return callback.authenticated(federatedIdentity);
