@@ -175,7 +175,7 @@ public class WechatWorkIdentityProvider
         logger.info(profile.toString());
         // profile: see https://work.weixin.qq.com/api/doc#90000/90135/90196
         BrokeredIdentityContext identity =
-                new BrokeredIdentityContext((getJsonProperty(profile, "userid")));
+                new BrokeredIdentityContext((getJsonProperty(profile, "userid")), this.getConfig());
 
         identity.setUsername(getJsonProperty(profile, "userid").toLowerCase());
         identity.setBrokerUserId(getJsonProperty(profile, "userid").toLowerCase());
@@ -200,7 +200,6 @@ public class WechatWorkIdentityProvider
         identity.setUserAttribute(PROFILE_ENABLE, getJsonProperty(profile, "enable"));
         identity.setUserAttribute(PROFILE_USERID, getJsonProperty(profile, "userid"));
 
-        identity.setIdpConfig(getConfig());
         identity.setIdp(this);
         AbstractJsonUserAttributeMapper.storeUserProfileForMapper(
                 identity, profile, getConfig().getAlias());
@@ -363,7 +362,6 @@ public class WechatWorkIdentityProvider
                 if (authorizationCode != null) {
                     BrokeredIdentityContext federatedIdentity = provider.getFederatedIdentity(authorizationCode);
 
-                    federatedIdentity.setIdpConfig(providerConfig);
                     federatedIdentity.setIdp(provider);
                     federatedIdentity.setAuthenticationSession(authSession);
 
