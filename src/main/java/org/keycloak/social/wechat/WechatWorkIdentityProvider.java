@@ -25,8 +25,10 @@ import java.util.concurrent.TimeUnit;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
+import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.*;
+
 import org.infinispan.Cache;
 import org.infinispan.configuration.cache.ConfigurationBuilder;
 import org.infinispan.manager.DefaultCacheManager;
@@ -37,6 +39,7 @@ import org.keycloak.broker.oidc.mappers.AbstractJsonUserAttributeMapper;
 import org.keycloak.broker.provider.AuthenticationRequest;
 import org.keycloak.broker.provider.BrokeredIdentityContext;
 import org.keycloak.broker.provider.IdentityBrokerException;
+import org.keycloak.broker.provider.util.IdentityBrokerState;
 import org.keycloak.broker.provider.util.SimpleHttp;
 import org.keycloak.broker.social.SocialIdentityProvider;
 import org.keycloak.common.ClientConnection;
@@ -46,6 +49,7 @@ import org.keycloak.events.EventType;
 import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
+import org.keycloak.protocol.ClientData;
 import org.keycloak.services.ErrorPage;
 import org.keycloak.services.messages.Messages;
 import org.keycloak.sessions.AuthenticationSessionModel;
@@ -55,8 +59,8 @@ public class WechatWorkIdentityProvider
         implements SocialIdentityProvider<WechatWorkProviderConfig> {
 
     public static final String AUTH_URL = "https://open.weixin.qq.com/connect/oauth2/authorize";
-    public static final String QRCODE_AUTH_URL =
-            "https://login.work.weixin.qq.com/wwlogin/sso/login"; // 企业微信外使用
+    public static final String QRCODE_AUTH_URL
+            = "https://login.work.weixin.qq.com/wwlogin/sso/login"; // 企业微信外使用
     public static final String TOKEN_URL = "https://qyapi.weixin.qq.com/cgi-bin/gettoken";
 
     public static final String DEFAULT_SCOPE = "snsapi_base";
@@ -86,8 +90,8 @@ public class WechatWorkIdentityProvider
 
     private static final DefaultCacheManager cacheManager = new DefaultCacheManager();
     private static final String WECHAT_WORK_CACHE_NAME = "wechat_work_sso";
-    private static final ConcurrentMap<String, Cache<String, String>> caches =
-            new ConcurrentHashMap<>();
+    private static final ConcurrentMap<String, Cache<String, String>> caches
+            = new ConcurrentHashMap<>();
 
     private static Cache<String, String> createCache(String suffix) {
         try {
@@ -176,8 +180,8 @@ public class WechatWorkIdentityProvider
             EventBuilder event, JsonNode profile) {
         logger.info(profile.toString());
         // profile: see https://work.weixin.qq.com/api/doc#90000/90135/90196
-        BrokeredIdentityContext identity =
-                new BrokeredIdentityContext((getJsonProperty(profile, "userid")), this.getConfig());
+        BrokeredIdentityContext identity
+                = new BrokeredIdentityContext((getJsonProperty(profile, "userid")), this.getConfig());
 
         identity.setUsername(getJsonProperty(profile, "userid").toLowerCase());
         identity.setBrokerUserId(getJsonProperty(profile, "userid").toLowerCase());
@@ -186,7 +190,7 @@ public class WechatWorkIdentityProvider
         if (email == null || email.length() == 0) {
             email = getJsonProperty(profile, "email");
         }
-        if(email != null) {
+        if (email != null) {
             identity.setFirstName(email.split("@")[0].toLowerCase());
             identity.setEmail(email);
         }
@@ -218,8 +222,8 @@ public class WechatWorkIdentityProvider
         BrokeredIdentityContext context = null;
         try {
             JsonNode profile;
-            profile =
-                    SimpleHttp.doGet(PROFILE_URL, session)
+            profile
+                    = SimpleHttp.doGet(PROFILE_URL, session)
                             .param(ACCESS_TOKEN_KEY, accessToken)
                             .param("code", authorizationCode)
                             .asJson();
@@ -231,8 +235,8 @@ public class WechatWorkIdentityProvider
             long errorCode = profile.get("errcode").asInt();
             if (errorCode == 42001 || errorCode == 40014) {
                 accessToken = resetAccessToken();
-                profile =
-                        SimpleHttp.doGet(PROFILE_URL, session)
+                profile
+                        = SimpleHttp.doGet(PROFILE_URL, session)
                                 .param(ACCESS_TOKEN_KEY, accessToken)
                                 .param("code", authorizationCode)
                                 .asJson();
@@ -241,8 +245,8 @@ public class WechatWorkIdentityProvider
             if (errorCode != 0) {
                 throw new IdentityBrokerException("get user info failed, please retry");
             }
-            profile =
-                    SimpleHttp.doGet(PROFILE_DETAIL_URL, session)
+            profile
+                    = SimpleHttp.doGet(PROFILE_DETAIL_URL, session)
                             .param(ACCESS_TOKEN_KEY, accessToken)
                             .param("userid", getJsonProperty(profile, "UserId"))
                             .asJson();
@@ -284,7 +288,7 @@ public class WechatWorkIdentityProvider
                     .queryParam(OAUTH2_PARAMETER_STATE, request.getState().getEncoded());
             uriBuilder.fragment(WEIXIN_REDIRECT_FRAGMENT);
         } else {
-            logger.infov("企业微信外部浏览器，构建授权链接参数列表：{0}={1}; {2}={3}; {4}={5}; {6}={7}; {8}={9}; {10}={11}", 
+            logger.infov("企业微信外部浏览器，构建授权链接参数列表：{0}={1}; {2}={3}; {4}={5}; {6}={7}; {8}={9}; {10}={11}",
                     "authUrl", getConfig().getQrcodeAuthorizationUrl(),
                     OAUTH2_PARAMETER_LOGIN_TYPE, DEFAULT_LOGIN_TYPE,
                     OAUTH2_PARAMETER_CLIENT_ID, getConfig().getClientId(),
@@ -306,6 +310,7 @@ public class WechatWorkIdentityProvider
     }
 
     protected static class Endpoint {
+
         protected AuthenticationCallback callback;
         protected RealmModel realm;
         protected EventBuilder event;
@@ -330,13 +335,15 @@ public class WechatWorkIdentityProvider
             this.provider = provider;
         }
 
-        @GET @Path("")
+        @GET
+        @Path("")
         public Response authResponse(
                 @QueryParam(AbstractOAuth2IdentityProvider.OAUTH2_PARAMETER_STATE) String state,
                 @QueryParam(AbstractOAuth2IdentityProvider.OAUTH2_PARAMETER_CODE) String authorizationCode,
                 @QueryParam(OAuth2Constants.ERROR) String error,
-                @QueryParam("appid") String client_id
-            ) {
+                @QueryParam("appid") String client_id,
+                @HeaderParam("user-agent") String userAgent
+        ) {
             WechatWorkProviderConfig providerConfig = provider.getConfig();
 
             logger.info("OAUTH2_PARAMETER_CODE=" + authorizationCode);
@@ -346,8 +353,8 @@ public class WechatWorkIdentityProvider
                 return errorIdentityProviderLogin(Messages.IDENTITY_PROVIDER_MISSING_STATE_ERROR);
             }
             try {
-                AuthenticationSessionModel authSession =
-                        this.callback.getAndVerifyAuthenticationSession(state);
+                AuthenticationSessionModel authSession
+                        = this.callback.getAndVerifyAuthenticationSession(state);
 
                 if (session != null) {
                     session.getContext().setAuthenticationSession(authSession);
@@ -374,8 +381,26 @@ public class WechatWorkIdentityProvider
                     return callback.authenticated(federatedIdentity);
                 }
             } catch (WebApplicationException e) {
+                // 处理成功授权后跳转到企业微信内部浏览器的情况，直接重定向到最初发起请求的链接，在企业微信浏览器中重新发起授权请求
+                Boolean toPerformAuthInWecom = e.getResponse().getStatus() == 400 && error == null && authorizationCode != null
+                        && userAgent != null && userAgent.contains("wxwork");
+                if (toPerformAuthInWecom) {
+                    IdentityBrokerState st = IdentityBrokerState.encoded(state, realm);
+
+                    String clientDataString = st.getClientData();
+                    ClientData clientData;
+                    try {
+                        clientData = ClientData.decodeClientDataFromParameter(clientDataString);
+                    } catch (Exception ex) {
+                        e.printStackTrace(System.out);
+                        return e.getResponse();
+                    }
+                    return Response.seeOther(UriBuilder.fromUri(clientData.getRedirectUri()).build()).build();
+                }
+
                 e.printStackTrace(System.out);
                 return e.getResponse();
+
             } catch (Exception e) {
                 logger.error("Failed to make identity provider oauth callback", e);
                 e.printStackTrace(System.out);
