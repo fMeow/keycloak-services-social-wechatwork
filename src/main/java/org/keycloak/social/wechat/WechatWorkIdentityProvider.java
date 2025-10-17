@@ -56,17 +56,19 @@ public class WechatWorkIdentityProvider
 
     public static final String AUTH_URL = "https://open.weixin.qq.com/connect/oauth2/authorize";
     public static final String QRCODE_AUTH_URL =
-            "https://open.work.weixin.qq.com/wwopen/sso/qrConnect"; // 企业微信外使用
+            "https://login.work.weixin.qq.com/wwlogin/sso/login"; // 企业微信外使用
     public static final String TOKEN_URL = "https://qyapi.weixin.qq.com/cgi-bin/gettoken";
 
     public static final String DEFAULT_SCOPE = "snsapi_base";
     public static final String DEFAULT_RESPONSE_TYPE = "code";
+    public static final String DEFAULT_LOGIN_TYPE = "CorpApp";
     public static final String WEIXIN_REDIRECT_FRAGMENT = "wechat_redirect";
 
     public static final String PROFILE_URL = "https://qyapi.weixin.qq.com/cgi-bin/user/getuserinfo";
     public static final String PROFILE_DETAIL_URL = "https://qyapi.weixin.qq.com/cgi-bin/user/get";
     public static final String USER_DETAIL_URL = "https://qyapi.weixin.qq.com/cgi-bin/auth/getuserdetail";
 
+    public static final String OAUTH2_PARAMETER_LOGIN_TYPE = "login_type";
     public static final String OAUTH2_PARAMETER_CLIENT_ID = "appid";
     public static final String OAUTH2_PARAMETER_AGENT_ID = "agentId";
     public static final String OAUTH2_PARAMETER_RESPONSE_TYPE = "response_type";
@@ -282,13 +284,17 @@ public class WechatWorkIdentityProvider
                     .queryParam(OAUTH2_PARAMETER_STATE, request.getState().getEncoded());
             uriBuilder.fragment(WEIXIN_REDIRECT_FRAGMENT);
         } else {
-            logger.infov("企业微信外部浏览器，构建授权链接参数列表：{0}={1}; {2}={3}; {4}={5}; {6}={7}; {8}={9}; {10}={11}", "authUrl", getConfig().getQrcodeAuthorizationUrl(), OAUTH2_PARAMETER_CLIENT_ID, getConfig().getClientId(),
+            logger.infov("企业微信外部浏览器，构建授权链接参数列表：{0}={1}; {2}={3}; {4}={5}; {6}={7}; {8}={9}; {10}={11}", 
+                    "authUrl", getConfig().getQrcodeAuthorizationUrl(),
+                    OAUTH2_PARAMETER_LOGIN_TYPE, DEFAULT_LOGIN_TYPE,
+                    OAUTH2_PARAMETER_CLIENT_ID, getConfig().getClientId(),
                     OAUTH2_PARAMETER_AGENT_ID, getConfig().getAgentId(),
                     OAUTH2_PARAMETER_REDIRECT_URI, request.getRedirectUri(),
                     OAUTH2_PARAMETER_STATE, request.getState().getEncoded());
 
             uriBuilder = UriBuilder.fromUri(getConfig().getQrcodeAuthorizationUrl());
             uriBuilder
+                    .queryParam(OAUTH2_PARAMETER_LOGIN_TYPE, DEFAULT_LOGIN_TYPE)
                     .queryParam(OAUTH2_PARAMETER_CLIENT_ID, getConfig().getClientId())
                     .queryParam(OAUTH2_PARAMETER_AGENT_ID.toLowerCase(), getConfig().getAgentId())
                     .queryParam(OAUTH2_PARAMETER_REDIRECT_URI, request.getRedirectUri())
@@ -353,9 +359,9 @@ public class WechatWorkIdentityProvider
                         return callback.cancelled(providerConfig);
                     } else if (error.equals(OAuthErrorException.LOGIN_REQUIRED)
                             || error.equals(OAuthErrorException.INTERACTION_REQUIRED)) {
-                        return callback.error(error);
+                        return callback.error(providerConfig, error);
                     } else {
-                        return callback.error(Messages.IDENTITY_PROVIDER_UNEXPECTED_ERROR);
+                        return callback.error(providerConfig, Messages.IDENTITY_PROVIDER_UNEXPECTED_ERROR);
                     }
                 }
 
