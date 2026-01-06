@@ -341,7 +341,6 @@ public class WechatWorkIdentityProvider
                 @QueryParam(AbstractOAuth2IdentityProvider.OAUTH2_PARAMETER_STATE) String state,
                 @QueryParam(AbstractOAuth2IdentityProvider.OAUTH2_PARAMETER_CODE) String authorizationCode,
                 @QueryParam(OAuth2Constants.ERROR) String error,
-                @QueryParam("appid") String client_id,
                 @HeaderParam("user-agent") String userAgent
         ) {
             WechatWorkProviderConfig providerConfig = provider.getConfig();
