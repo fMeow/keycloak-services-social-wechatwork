@@ -32,6 +32,9 @@ public class WechatWorkUserAttributeMapper extends AbstractJsonUserAttributeMapp
       UserModel user,
       IdentityProviderMapperModel mapperModel,
       BrokeredIdentityContext context) {
+
+    super.updateBrokeredUser(session, realm, user, mapperModel, context);
+    
     user.setSingleAttribute(PROFILE_MOBILE, context.getUserAttribute(PROFILE_MOBILE));
     user.setSingleAttribute(PROFILE_GENDER, context.getUserAttribute(PROFILE_GENDER));
     user.setSingleAttribute(PROFILE_STATUS, context.getUserAttribute(PROFILE_STATUS));
